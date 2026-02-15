@@ -5,6 +5,7 @@ const path = require('path');
 
 const PORT = process.env.AUTH_PORT || 3000;
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://127.0.0.1:18789';
+const AUTH_TOKEN = process.env.AUTH_TOKEN || ''; // Custom login token (if empty, validates against gateway)
 const COOKIE_NAME = 'sl_session';
 const COOKIE_MAX_AGE = 86400 * 7; // 7 days
 const SECRET = process.env.AUTH_SECRET || crypto.randomBytes(32).toString('hex');
@@ -116,27 +117,33 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: 'Ungültige Anfrage' }));
     }
 
-    if (!token || token.length < 8) {
+    if (!token || token.length < 3) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'Bitte Zugangsschlüssel eingeben' }));
     }
 
-    // Validate token against gateway
-    try {
-      const gwRes = await fetch(`${GATEWAY_URL}/api/status`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        signal: AbortSignal.timeout(5000)
-      });
-
-      if (gwRes.ok || gwRes.status === 200) {
-        res.writeHead(200, {
-          'Content-Type': 'application/json',
-          'Set-Cookie': makeSessionCookie(token)
+    // Validate: custom AUTH_TOKEN or gateway token
+    let valid = false;
+    if (AUTH_TOKEN) {
+      valid = (token === AUTH_TOKEN);
+    } else {
+      try {
+        const gwRes = await fetch(`${GATEWAY_URL}/api/status`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: AbortSignal.timeout(5000)
         });
-        return res.end(JSON.stringify({ ok: true }));
+        valid = (gwRes.ok || gwRes.status === 200);
+      } catch (e) {
+        console.error('Gateway check failed:', e.message);
       }
-    } catch (e) {
-      console.error('Gateway check failed:', e.message);
+    }
+
+    if (valid) {
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Set-Cookie': makeSessionCookie(token)
+      });
+      return res.end(JSON.stringify({ ok: true }));
     }
 
     res.writeHead(401, { 'Content-Type': 'application/json' });
