@@ -78,7 +78,8 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200);
       return res.end();
     }
-    res.writeHead(401);
+    // Return 302 redirect — Caddy forward_auth will pass this through
+    res.writeHead(302, { 'Location': '/auth/login' });
     return res.end();
   }
 
