@@ -77,7 +77,8 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/auth/check') {
     const token = parseCookie(req.headers.cookie);
     if (token) {
-      res.writeHead(200);
+      const headers = { 'X-Gateway-Token': GATEWAY_TOKEN || token };
+      res.writeHead(200, headers);
       return res.end();
     }
     // Return 302 redirect — Caddy forward_auth will pass this through
@@ -120,7 +121,7 @@ const server = http.createServer(async (req, res) => {
 
     if (!token || token.length < 3) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ error: 'Bitte Zugangsschlüssel eingeben' }));
+      return res.end(JSON.stringify({ error: 'Bitte Passwort eingeben' }));
     }
 
     // Validate: custom AUTH_TOKEN or gateway token
@@ -140,16 +141,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (valid) {
-      const redirectUrl = GATEWAY_TOKEN ? `/?token=${encodeURIComponent(GATEWAY_TOKEN)}` : '/';
       res.writeHead(200, {
         'Content-Type': 'application/json',
         'Set-Cookie': makeSessionCookie(token)
       });
-      return res.end(JSON.stringify({ ok: true, redirect: redirectUrl }));
+      return res.end(JSON.stringify({ ok: true, redirect: '/' }));
     }
 
     res.writeHead(401, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ error: 'Ungültiger Zugangsschlüssel' }));
+    return res.end(JSON.stringify({ error: 'Ungültiges Passwort' }));
   }
 
   // Logout
