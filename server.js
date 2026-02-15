@@ -6,6 +6,7 @@ const path = require('path');
 const PORT = process.env.AUTH_PORT || 3000;
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://127.0.0.1:18789';
 const AUTH_TOKEN = process.env.AUTH_TOKEN || ''; // Custom login token (if empty, validates against gateway)
+const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || ''; // Gateway token to pass to Control UI after login
 const COOKIE_NAME = 'sl_session';
 const COOKIE_MAX_AGE = 86400 * 7; // 7 days
 const SECRET = process.env.AUTH_SECRET || crypto.randomBytes(32).toString('hex');
@@ -139,11 +140,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (valid) {
+      const redirectUrl = GATEWAY_TOKEN ? `/?token=${encodeURIComponent(GATEWAY_TOKEN)}` : '/';
       res.writeHead(200, {
         'Content-Type': 'application/json',
         'Set-Cookie': makeSessionCookie(token)
       });
-      return res.end(JSON.stringify({ ok: true }));
+      return res.end(JSON.stringify({ ok: true, redirect: redirectUrl }));
     }
 
     res.writeHead(401, { 'Content-Type': 'application/json' });
